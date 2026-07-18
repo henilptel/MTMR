@@ -106,9 +106,12 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
 
     private static let genericBookmarkIcon: NSImage = {
         let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor.white]))
         if let symbol = NSImage(systemSymbolName: "bookmark.fill", accessibilityDescription: nil),
            let configured = symbol.withSymbolConfiguration(config) {
+            // Template mode instead of an explicit palette color (that API needs
+            // macOS 12+, this project targets older) — the system auto-tints
+            // template images appropriately for the Touch Bar's dark context.
+            configured.isTemplate = true
             return configured
         }
         return NSImage()
