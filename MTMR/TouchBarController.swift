@@ -49,6 +49,8 @@ extension ItemType {
             return "com.toxblh.mtmr.music."
         case .group(items: _):
             return "com.toxblh.mtmr.groupBar."
+        case .dynamicBookmarks(source: _):
+            return "com.toxblh.mtmr.dynamicBookmarks."
         case .nightShift:
             return "com.toxblh.mtmr.nightShift."
         case .dnd:
