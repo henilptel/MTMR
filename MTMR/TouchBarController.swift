@@ -116,7 +116,13 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
                         // needlessly recreated every item (re-triggering any
                         // shell/AppleScript-backed buttons). Nothing about the main
                         // bar's content actually changed by opening a group, so there's
-                        // nothing to reload.
+                        // nothing to reload. Also must restore the delegate — showPopover()
+                        // reassigns touchBar.delegate to the GroupBarItem itself so it can
+                        // serve its own items; leaving that in place after closing means
+                        // makeItemForIdentifier(basicViewIdentifier) hits the group's
+                        // delegate (which only knows its own sub-items) and returns nil,
+                        // leaving the bar blank until the next app switch resets it.
+                        self.touchBar.delegate = self
                         self.touchBar.defaultItemIdentifiers = [self.basicViewIdentifier]
                     }))
                 ],
