@@ -110,7 +110,14 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
                 actions: [
                     Action(trigger: .singleTap, value: .custom(closure: { [weak self] in
                         guard let `self` = self else { return }
-                        self.reloadPreset(path: self.lastPresetPath)
+                        // Just restore the main view's identifier instead of a full
+                        // reloadPreset() (minimize + rebuild everything + re-present) —
+                        // that caused a visible flash to the default Touch Bar, and
+                        // needlessly recreated every item (re-triggering any
+                        // shell/AppleScript-backed buttons). Nothing about the main
+                        // bar's content actually changed by opening a group, so there's
+                        // nothing to reload.
+                        self.touchBar.defaultItemIdentifiers = [self.basicViewIdentifier]
                     }))
                 ],
                 legacyAction: .none,
