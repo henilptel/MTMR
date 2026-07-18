@@ -102,7 +102,17 @@ codesign --force --deep --sign - "$APP_PATH"
 # Auto-fix Sparkle.framework Versions/<letter> mismatch: launch, and if it
 # crashes specifically with "Library not loaded ... Sparkle.framework/Versions/X",
 # rename our Versions dir to match X and retry once.
+#
+# TCC reset happens INSIDE this function, immediately before each launch
+# attempt (not once at the end) — every new code signature invalidates the
+# previous grant, and if a Sparkle-fix re-sign happens between attempts the
+# signature changes again. Resetting after launching (the original bug) let
+# that first launch's fresh permission prompt/registration get wiped out
+# again a few seconds later, so it never showed up in System Settings until
+# a manual relaunch (with no reset following it) made it stick.
 attempt_launch_and_fix() {
+  tccutil reset AppleEvents "$BUNDLE_ID" > /dev/null 2>&1 || true
+  tccutil reset Accessibility "$BUNDLE_ID" > /dev/null 2>&1 || true
   open "$APP_PATH"
   sleep 2
   if pgrep -f "MTMR.app/Contents/MacOS/MTMR" > /dev/null; then
@@ -157,10 +167,6 @@ if ! attempt_launch_and_fix; then
     exit 1
   fi
 fi
-
-echo "==> Resetting TCC permissions for the new binary signature..."
-tccutil reset AppleEvents "$BUNDLE_ID" > /dev/null 2>&1 || true
-tccutil reset Accessibility "$BUNDLE_ID" > /dev/null 2>&1 || true
 
 echo "==> Done. MTMR is running:"
 ps aux | grep -i "MTMR.app/Contents/MacOS/MTMR" | grep -v grep
