@@ -425,7 +425,14 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             // hideAfter/maxChars already handed to ClipboardMonitor in
             // loadItemDefinitions() — this only ever gets created while a
             // preview is already active (see the show gate in createItems()).
-            barItem = ClipboardPreviewBarItem(identifier: identifier)
+            // width (if any) is passed straight through and applied as a
+            // max, not the generic fixed-width behavior below — see the
+            // guard on that block and ClipboardPreviewBarItem's own comment.
+            var clipboardMaxWidth: CGFloat?
+            if case let .width(value)? = item.additionalParameters[.width] {
+                clipboardMaxWidth = value
+            }
+            barItem = ClipboardPreviewBarItem(identifier: identifier, maxWidth: clipboardMaxWidth)
         case .nightShift:
             barItem = NightShiftBarItem(identifier: identifier)
         case .dnd:
@@ -460,7 +467,10 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         if case let .background(color)? = item.additionalParameters[.background], let item = barItem as? CustomButtonTouchBarItem {
             item.backgroundColor = color
         }
-        if case let .width(value)? = item.additionalParameters[.width], let widthBarItem = barItem as? CanSetWidth {
+        // ClipboardPreviewBarItem applies its own max-width constraint above
+        // instead (content-hugging, shrinks to fit short previews) — the
+        // generic fixed equalToConstant behavior here would defeat that.
+        if case let .width(value)? = item.additionalParameters[.width], let widthBarItem = barItem as? CanSetWidth, !(barItem is ClipboardPreviewBarItem) {
             widthBarItem.setWidth(value: value)
         }
         if case let .image(source)? = item.additionalParameters[.image], let item = barItem as? CustomButtonTouchBarItem {
