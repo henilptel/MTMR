@@ -212,7 +212,7 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             items[identifier]
         })
 
-        basicView = BasicView(identifier: basicViewIdentifier, items:leftItems + [scrollArea] + rightItems, swipeItems: swipeItems)
+        basicView = BasicView(identifier: basicViewIdentifier, leftItems: leftItems, centerItem: scrollArea, rightItems: rightItems, swipeItems: swipeItems)
         basicView?.legacyGesturesEnabled = AppSettings.multitouchGestures
     }
 
