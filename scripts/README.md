@@ -19,3 +19,5 @@ Converts an image, an SF Symbol, or an emoji into a base64 PNG string for use in
 ```
 
 Browse available SF Symbol names at [developer.apple.com/sf-symbols](https://developer.apple.com/sf-symbols/) or the SF Symbols Mac app.
+
+**Gotcha:** if you redirect the output to a file, do NOT merge stderr into it (`> out.txt 2>&1`) — the diagnostic line ("N chars, copied to clipboard...") is intentionally printed to stderr so it doesn't pollute the base64, but merging streams defeats that and corrupts the file. Just use plain `> out.txt` (stderr will still print to your terminal).
