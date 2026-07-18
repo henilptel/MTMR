@@ -49,7 +49,7 @@ extension ItemType {
             return "com.toxblh.mtmr.music."
         case .group(items: _):
             return "com.toxblh.mtmr.groupBar."
-        case .dynamicBookmarks(source: _):
+        case .dynamicBookmarks(source: _, openInApp: _):
             return "com.toxblh.mtmr.dynamicBookmarks."
         case .nightShift:
             return "com.toxblh.mtmr.nightShift."
@@ -402,8 +402,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             barItem = MusicBarItem(identifier: identifier, interval: interval, disableMarquee: disableMarquee)
         case let .group(items: items):
             barItem = GroupBarItem(identifier: identifier, items: items)
-        case let .dynamicBookmarks(source: source):
-            barItem = BookmarksBarItem(identifier: identifier, source: source)
+        case let .dynamicBookmarks(source: source, openInApp: openInApp):
+            barItem = BookmarksBarItem(identifier: identifier, source: source, openInApp: openInApp)
         case .nightShift:
             barItem = NightShiftBarItem(identifier: identifier)
         case .dnd:

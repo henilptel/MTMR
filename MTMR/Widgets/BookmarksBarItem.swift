@@ -14,6 +14,11 @@ import Cocoa
 
 class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
     private let source: SourceProtocol
+    // Which app to open bookmarks in — e.g. "Brave Browser Nightly". Optional:
+    // when nil, links open via NSWorkspace.shared.open(url), i.e. whatever
+    // the user's actual default browser/handler is, so this widget works for
+    // anyone regardless of which browser they use, not just Brave.
+    private let openInApp: String?
     private var itemButtons: [NSTouchBarItem.Identifier: NSTouchBarItem] = [:]
     private var itemIdentifiers: [NSTouchBarItem.Identifier] = []
 
@@ -24,8 +29,9 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
         return dir
     }()
 
-    init(identifier: NSTouchBarItem.Identifier, source: SourceProtocol) {
+    init(identifier: NSTouchBarItem.Identifier, source: SourceProtocol, openInApp: String?) {
         self.source = source
+        self.openInApp = openInApp
         super.init(identifier: identifier)
         popoverTouchBar.delegate = self
     }
@@ -53,11 +59,16 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
             let button = CustomButtonTouchBarItem(identifier: identifier, title: "")
             button.image = BookmarksBarItem.iconForURL(urlString)
             button.isBordered = true
+            let targetApp = openInApp
             button.actions.append(ItemAction(trigger: .singleTap, {
-                let task = Process()
-                task.launchPath = "/usr/bin/open"
-                task.arguments = ["-a", "Brave Browser Nightly", urlString]
-                try? task.run()
+                if let targetApp = targetApp {
+                    let task = Process()
+                    task.launchPath = "/usr/bin/open"
+                    task.arguments = ["-a", targetApp, urlString]
+                    try? task.run()
+                } else if let url = URL(string: urlString) {
+                    NSWorkspace.shared.open(url)
+                }
             }))
             itemButtons[identifier] = button
             itemIdentifiers.append(identifier)

@@ -271,7 +271,7 @@ enum ItemType: Decodable {
     case inputsource
     case music(interval: Double, disableMarquee: Bool)
     case group(items: [BarItemDefinition])
-    case dynamicBookmarks(source: SourceProtocol)
+    case dynamicBookmarks(source: SourceProtocol, openInApp: String?)
     case nightShift
     case dnd
     case pomodoro(workTime: Double, restTime: Double)
@@ -311,6 +311,7 @@ enum ItemType: Decodable {
         case fingers
         case minOffset
         case maxToShow
+        case openInApp
     }
 
     enum ItemTypeRaw: String, Decodable {
@@ -415,7 +416,8 @@ enum ItemType: Decodable {
 
         case .dynamicBookmarks:
             let source = try container.decode(Source.self, forKey: .source)
-            self = .dynamicBookmarks(source: source)
+            let openInApp = try container.decodeIfPresent(String.self, forKey: .openInApp)
+            self = .dynamicBookmarks(source: source, openInApp: openInApp)
 
         case .nightShift:
             self = .nightShift
