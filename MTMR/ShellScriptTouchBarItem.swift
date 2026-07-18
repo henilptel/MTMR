@@ -77,6 +77,13 @@ class ShellScriptTouchBarItem: CustomButtonTouchBarItem {
     }
     
     func execute(_ command: String) -> String {
+        return ShellScriptTouchBarItem.runCapturingOutput(command, timeout: interval)
+    }
+
+    // Extracted from the instance method above so other tap-driven actions
+    // (see TouchBarController's revealScriptOutput handling) can capture a
+    // script's output too, without duplicating the Process/Pipe setup.
+    static func runCapturingOutput(_ command: String, timeout: TimeInterval) -> String {
         let task = Process()
         if let shell = getenv("SHELL") {
             task.launchPath = String.init(cString: shell)
@@ -84,26 +91,26 @@ class ShellScriptTouchBarItem: CustomButtonTouchBarItem {
             task.launchPath = "/bin/bash"
         }
         task.arguments = ["-c", command]
-        
+
         let pipe = Pipe()
         task.standardOutput = pipe
-        
-        // kill process if it is over update interval
-        DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak task] in
+
+        // kill process if it runs over the caller's own timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak task] in
             task?.terminate()
         }
-        
+
         task.launch()
-        
+
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         var output: String = NSString(data: data, encoding: String.Encoding.utf8.rawValue) as String? ?? ""
-        
+
         //always wait until task end or you can catch "task still running" error while accessing task.terminationStatus variable
         task.waitUntilExit()
         if (output == "" && task.terminationStatus != 0) {
             output = "error"
         }
-        
+
         return output.replacingOccurrences(of: "\\n+$", with: "", options: .regularExpression)
     }
 }

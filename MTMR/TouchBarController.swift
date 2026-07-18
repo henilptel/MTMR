@@ -458,7 +458,11 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         
         if let touchBarItem = barItem as? CustomButtonTouchBarItem {
             for action in item.actions {
-                touchBarItem.actions.append(ItemAction(trigger: action.trigger, self.closure(for: action)))
+                if case let .revealScriptOutput(source: source, duration: duration) = action.value {
+                    touchBarItem.actions.append(ItemAction(trigger: action.trigger, self.revealScriptOutputClosure(for: touchBarItem, source: source, duration: duration)))
+                } else {
+                    touchBarItem.actions.append(ItemAction(trigger: action.trigger, self.closure(for: action)))
+                }
             }
         }
         if case let .bordered(bordered)? = item.additionalParameters[.bordered], let item = barItem as? CustomButtonTouchBarItem {
@@ -529,6 +533,26 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             return closure
         case .none:
             return nil
+        case .revealScriptOutput:
+            // Handled specially in createItem() (needs a reference to the
+            // specific CustomButtonTouchBarItem to reveal/restore its own
+            // title) — should never actually reach here, but the switch
+            // must stay exhaustive.
+            print("revealScriptOutput action reached the generic closure(for:) path unexpectedly for \(action)")
+            return nil
+        }
+    }
+
+    func revealScriptOutputClosure(for item: CustomButtonTouchBarItem, source: SourceProtocol, duration: Double) -> () -> Void {
+        return { [weak item] in
+            guard let command = source.string else { return }
+            DispatchQueue.shellScriptQueue.async { [weak item] in
+                let output = ShellScriptTouchBarItem.runCapturingOutput(command, timeout: min(duration, 10.0))
+                let text = output.isEmpty ? "?" : output
+                DispatchQueue.main.async { [weak item] in
+                    item?.revealTemporarily(text, forDuration: duration)
+                }
+            }
         }
     }
 

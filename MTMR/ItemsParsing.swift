@@ -492,6 +492,14 @@ struct Action: Decodable {
         case shellScript(executable: String, parameters: [String])
         case custom(closure: () -> Void)
         case openUrl(url: String)
+        // Runs a script and shows its (trimmed) stdout as the button's title
+        // for `duration` seconds, then restores whatever was showing before.
+        // Unlike `shellScript`, which is fire-and-forget with no captured
+        // output — MTMR never reads anything back from it — this is for
+        // buttons whose tap action needs to report something to the user
+        // through the Touch Bar itself, not a side channel (a notification,
+        // a log file) the user might not see.
+        case revealScriptOutput(source: SourceProtocol, duration: Double)
     }
 
     private enum ActionTypeRaw: String, Decodable {
@@ -500,6 +508,7 @@ struct Action: Decodable {
         case appleScript
         case shellScript
         case openUrl
+        case revealScriptOutput
     }
 
     enum CodingKeys: String, CodingKey {
@@ -511,6 +520,8 @@ struct Action: Decodable {
         case executablePath
         case shellArguments
         case url
+        case source
+        case duration
     }
 
     let trigger: Trigger
@@ -544,11 +555,22 @@ struct Action: Decodable {
         case .some(.openUrl):
             let url = try container.decode(String.self, forKey: .url)
             value = .openUrl(url: url)
+
+        case .some(.revealScriptOutput):
+            let source = try container.decode(Source.self, forKey: .source)
+            let rawDuration = try container.decodeIfPresent(Double.self, forKey: .duration) ?? 5.0
+            // Same defensive clamping pattern as clipboardPreview's
+            // hideAfter — a malformed/extreme config value shouldn't produce
+            // a button stuck showing revealed text indefinitely or reverting
+            // before it's even readable.
+            let duration = rawDuration.isFinite ? min(max(rawDuration, 1.0), 60.0) : 5.0
+            value = .revealScriptOutput(source: source, duration: duration)
+
         case .none:
             value = .none
         }
     }
-    
+
     init(trigger: Trigger, value: Value) {
         self.trigger = trigger
         self.value = value

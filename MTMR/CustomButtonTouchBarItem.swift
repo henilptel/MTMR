@@ -99,6 +99,33 @@ class CustomButtonTouchBarItem: NSCustomTouchBarItem, NSGestureRecognizerDelegat
         }
     }
 
+    // Guards the revert timer below: a second reveal (or any other write to
+    // title/image) before the first one's duration elapses must invalidate
+    // the first timer's restore, or it would stomp the newer state with a
+    // stale captured title once it fires.
+    private var revealToken = UUID()
+
+    // Temporarily replaces this button's title/image, then restores whatever
+    // was showing before — for buttons whose action can't otherwise report
+    // anything back (MTMR's shellScript action is fire-and-forget, its
+    // output is never captured/displayed). Not specific to any one widget;
+    // any CustomButtonTouchBarItem-based button can use this.
+    func revealTemporarily(_ text: String, forDuration duration: TimeInterval) {
+        let token = UUID()
+        revealToken = token
+        let previousTitle = attributedTitle
+        let previousImage = image
+
+        title = text
+        image = nil
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            guard let self = self, self.revealToken == token else { return }
+            self.attributedTitle = previousTitle
+            self.image = previousImage
+        }
+    }
+
     private func reinstallButton() {
         let title = button.attributedTitle
         let image = button.image
