@@ -83,11 +83,19 @@ class BasicView: NSCustomTouchBarItem, NSGestureRecognizerDelegate {
             let centered = centerView.centerXAnchor.constraint(equalTo: container.centerXAnchor)
             centered.priority = .defaultHigh
 
+            // Also not required: if a widget's content genuinely can't fit
+            // alongside left/right items at its natural width, this should
+            // compress rather than hard-conflict with the required
+            // clearsLeft/clearsRight constraints above (a conflict silently
+            // produces undefined/clipped layout instead of an intentional
+            // shrink).
+            let width = centerView.widthAnchor.constraint(equalToConstant: centerWidth)
+            width.priority = .defaultHigh
+
             NSLayoutConstraint.activate([
-                clearsLeft, clearsRight, centered,
+                clearsLeft, clearsRight, centered, width,
                 centerView.topAnchor.constraint(equalTo: container.topAnchor),
                 centerView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-                centerView.widthAnchor.constraint(equalToConstant: centerWidth),
             ])
         }
 
