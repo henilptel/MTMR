@@ -458,8 +458,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         
         if let touchBarItem = barItem as? CustomButtonTouchBarItem {
             for action in item.actions {
-                if case let .revealScriptOutput(source: source, duration: duration) = action.value {
-                    touchBarItem.actions.append(ItemAction(trigger: action.trigger, self.revealScriptOutputClosure(for: touchBarItem, source: source, duration: duration)))
+                if case let .cycleScriptOutput(sources: sources) = action.value {
+                    touchBarItem.actions.append(ItemAction(trigger: action.trigger, self.cycleScriptOutputClosure(for: touchBarItem, sources: sources)))
                 } else {
                     touchBarItem.actions.append(ItemAction(trigger: action.trigger, self.closure(for: action)))
                 }
@@ -533,24 +533,35 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             return closure
         case .none:
             return nil
-        case .revealScriptOutput:
+        case .cycleScriptOutput:
             // Handled specially in createItem() (needs a reference to the
-            // specific CustomButtonTouchBarItem to reveal/restore its own
-            // title) — should never actually reach here, but the switch
-            // must stay exhaustive.
-            print("revealScriptOutput action reached the generic closure(for:) path unexpectedly for \(action)")
+            // specific CustomButtonTouchBarItem to advance/read its own
+            // cycle state) — should never actually reach here, but the
+            // switch must stay exhaustive.
+            print("cycleScriptOutput action reached the generic closure(for:) path unexpectedly for \(action)")
             return nil
         }
     }
 
-    func revealScriptOutputClosure(for item: CustomButtonTouchBarItem, source: SourceProtocol, duration: Double) -> () -> Void {
+    func cycleScriptOutputClosure(for item: CustomButtonTouchBarItem, sources: [SourceProtocol]) -> () -> Void {
         return { [weak item] in
-            guard let command = source.string else { return }
+            guard let item = item else { return }
+            let newIndex = item.cycleAdvance(stateCount: sources.count)
+            // Index 0 is fully handled synchronously inside cycleAdvance
+            // (restore snapshot / resume auto-refresh) — nothing to fetch.
+            guard newIndex > 0, newIndex - 1 < sources.count else { return }
+            guard let command = sources[newIndex - 1].string else { return }
+
             DispatchQueue.shellScriptQueue.async { [weak item] in
-                let output = ShellScriptTouchBarItem.runCapturingOutput(command, timeout: min(duration, 10.0))
+                let output = ShellScriptTouchBarItem.runCapturingOutput(command, timeout: 10.0)
                 let text = output.isEmpty ? "?" : output
                 DispatchQueue.main.async { [weak item] in
-                    item?.revealTemporarily(text, forDuration: duration)
+                    // The user may have tapped again (or cycled all the way
+                    // back to 0) while this script was still running —
+                    // applying a stale fetch now would silently show text
+                    // for a different state than the one currently active.
+                    guard let item = item, item.cycleIndex == newIndex else { return }
+                    item.title = text
                 }
             }
         }

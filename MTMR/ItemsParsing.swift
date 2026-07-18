@@ -492,14 +492,18 @@ struct Action: Decodable {
         case shellScript(executable: String, parameters: [String])
         case custom(closure: () -> Void)
         case openUrl(url: String)
-        // Runs a script and shows its (trimmed) stdout as the button's title
-        // for `duration` seconds, then restores whatever was showing before.
-        // Unlike `shellScript`, which is fire-and-forget with no captured
-        // output — MTMR never reads anything back from it — this is for
-        // buttons whose tap action needs to report something to the user
-        // through the Touch Bar itself, not a side channel (a notification,
-        // a log file) the user might not see.
-        case revealScriptOutput(source: SourceProtocol, duration: Double)
+        // Cycles this button through a fixed sequence of states on each tap:
+        // index 0 is the button's own normal content, indices 1...N run
+        // sources[0...N-1] and show that (trimmed) stdout, sticky until
+        // tapped again — then wraps back to 0. Unlike `shellScript`, which
+        // is fire-and-forget with no captured output at all, this is for
+        // buttons whose tap needs to report something *through the button
+        // itself*. A single "reveal for N seconds then auto-revert" variant
+        // was tried first and dropped: a second tap before the timer fired
+        // could capture already-revealed text as the thing to restore to,
+        // permanently losing the real baseline — a tap-driven state machine
+        // has no timer to race with.
+        case cycleScriptOutput(sources: [SourceProtocol])
     }
 
     private enum ActionTypeRaw: String, Decodable {
@@ -508,7 +512,7 @@ struct Action: Decodable {
         case appleScript
         case shellScript
         case openUrl
-        case revealScriptOutput
+        case cycleScriptOutput
     }
 
     enum CodingKeys: String, CodingKey {
@@ -520,8 +524,7 @@ struct Action: Decodable {
         case executablePath
         case shellArguments
         case url
-        case source
-        case duration
+        case sources
     }
 
     let trigger: Trigger
@@ -556,15 +559,16 @@ struct Action: Decodable {
             let url = try container.decode(String.self, forKey: .url)
             value = .openUrl(url: url)
 
-        case .some(.revealScriptOutput):
-            let source = try container.decode(Source.self, forKey: .source)
-            let rawDuration = try container.decodeIfPresent(Double.self, forKey: .duration) ?? 5.0
-            // Same defensive clamping pattern as clipboardPreview's
-            // hideAfter — a malformed/extreme config value shouldn't produce
-            // a button stuck showing revealed text indefinitely or reverting
-            // before it's even readable.
-            let duration = rawDuration.isFinite ? min(max(rawDuration, 1.0), 60.0) : 5.0
-            value = .revealScriptOutput(source: source, duration: duration)
+        case .some(.cycleScriptOutput):
+            let sources = try container.decode([Source].self, forKey: .sources)
+            if sources.isEmpty {
+                // Not a decode failure (a deliberately-empty array is valid
+                // JSON), but tapping this button would then do nothing at
+                // all forever — surface that during development rather than
+                // leaving it a silent, unexplained dead button.
+                print("cycleScriptOutput action has an empty 'sources' array — this button's tap will do nothing")
+            }
+            value = .cycleScriptOutput(sources: sources)
 
         case .none:
             value = .none

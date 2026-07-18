@@ -7,11 +7,21 @@
 //
 import Foundation
 
-class ShellScriptTouchBarItem: CustomButtonTouchBarItem {
+class ShellScriptTouchBarItem: CustomButtonTouchBarItem, RefreshSuppressible {
     private let interval: TimeInterval
     private let source: String
     private var forceHideConstraint: NSLayoutConstraint!
-    
+
+    // Tracks the freshest fetched result independent of whether it's
+    // currently being displayed, so a cycleScriptOutput action can show it
+    // immediately on returning to index 0 rather than a stale snapshot from
+    // whenever cycling started — see RefreshSuppressible's doc comment.
+    private var isRefreshSuppressed = false
+    private var latestAttributedTitle: NSAttributedString?
+    private var latestImage: NSImage?
+    private var latestForceHide = false
+    private var latestBackgroundColor: NSColor?
+
     struct ScriptResult: Decodable {
         var title: String?
         var image: Source?
@@ -58,30 +68,60 @@ class ShellScriptTouchBarItem: CustomButtonTouchBarItem {
         title.addAttributes([.baselineOffset: 1], range: NSRange(location: 0, length: title.length))
         let newBackgoundColor: NSColor? = title.length != 0 ? title.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor : nil
         
-        // Update UI
+        // Update UI — always track the freshest result (for RefreshSuppressible),
+        // but only apply it to what's actually visible when not suppressed by
+        // an active cycle override.
         DispatchQueue.main.async { [weak self, newBackgoundColor] in
-            if (newBackgoundColor != self?.backgroundColor) { // performance optimization because of reinstallButton
-                self?.backgroundColor = newBackgoundColor
-            }
-            self?.attributedTitle = title
+            guard let self = self else { return }
+            self.latestAttributedTitle = title
+            self.latestBackgroundColor = newBackgoundColor
             if json {
-                self?.image = image
+                self.latestImage = image
             }
-            self?.forceHideConstraint.isActive = scriptResult == ""
+            self.latestForceHide = scriptResult == ""
+
+            guard !self.isRefreshSuppressed else { return }
+            if (newBackgoundColor != self.backgroundColor) { // performance optimization because of reinstallButton
+                self.backgroundColor = newBackgoundColor
+            }
+            self.attributedTitle = title
+            if json {
+                self.image = image
+            }
+            self.forceHideConstraint.isActive = scriptResult == ""
         }
-        
+
         // Schedule next update
         DispatchQueue.shellScriptQueue.asyncAfter(deadline: .now() + interval) { [weak self] in
             self?.refreshAndSchedule()
         }
     }
-    
+
+    func suppressAutoRefresh(_ suppressed: Bool) {
+        isRefreshSuppressed = suppressed
+    }
+
+    func restoreLatestAutoRefreshedTitle() {
+        if let color = latestBackgroundColor, color != backgroundColor {
+            backgroundColor = latestBackgroundColor
+        }
+        if let title = latestAttributedTitle {
+            attributedTitle = title
+        }
+        if let image = latestImage {
+            self.image = image
+        }
+        if forceHideConstraint != nil {
+            forceHideConstraint.isActive = latestForceHide
+        }
+    }
+
     func execute(_ command: String) -> String {
         return ShellScriptTouchBarItem.runCapturingOutput(command, timeout: interval)
     }
 
     // Extracted from the instance method above so other tap-driven actions
-    // (see TouchBarController's revealScriptOutput handling) can capture a
+    // (see TouchBarController's cycleScriptOutput handling) can capture a
     // script's output too, without duplicating the Process/Pipe setup.
     static func runCapturingOutput(_ command: String, timeout: TimeInterval) -> String {
         let task = Process()

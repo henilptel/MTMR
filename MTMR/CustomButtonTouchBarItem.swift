@@ -8,6 +8,21 @@
 
 import Cocoa
 
+// Opt-in for CustomButtonTouchBarItem subclasses that continuously refresh
+// their own title in the background on a timer (ShellScriptTouchBarItem),
+// independent of any user interaction. cycleAdvance's plain snapshot-restore
+// would go stale for these — if the real value changes while cycled away
+// from index 0, restoring a snapshot taken before that change shows outdated
+// data with no indication anything's wrong. A conforming type must suppress
+// applying its own background refreshes to the visible title/image while
+// suppressed (so cycling can put arbitrary content there without it being
+// clobbered mid-cycle), while continuing to track the freshest value
+// internally so it can be shown immediately on return to index 0.
+protocol RefreshSuppressible: AnyObject {
+    func suppressAutoRefresh(_ suppressed: Bool)
+    func restoreLatestAutoRefreshedTitle()
+}
+
 struct ItemAction {
     typealias TriggerClosure = (() -> Void)?
     
@@ -99,31 +114,49 @@ class CustomButtonTouchBarItem: NSCustomTouchBarItem, NSGestureRecognizerDelegat
         }
     }
 
-    // Guards the revert timer below: a second reveal (or any other write to
-    // title/image) before the first one's duration elapses must invalidate
-    // the first timer's restore, or it would stomp the newer state with a
-    // stale captured title once it fires.
-    private var revealToken = UUID()
+    // Cycle state for the cycleScriptOutput action: index 0 means "no
+    // override, show this item's own normal content"; index 1...N means
+    // "showing sources[index-1]'s cached output", sticky until tapped again
+    // (no timer — a timer-based "reveal for N seconds" was tried first and
+    // had a real bug: a second tap before the first's timer fired captured
+    // the *already-revealed* text as "what to restore to", permanently
+    // losing the real baseline. A tap-driven state machine has no timer to
+    // race with, so that class of bug can't recur here).
+    private(set) var cycleIndex = 0
+    private var cycleBaselineTitle: NSAttributedString?
 
-    // Temporarily replaces this button's title/image, then restores whatever
-    // was showing before — for buttons whose action can't otherwise report
-    // anything back (MTMR's shellScript action is fire-and-forget, its
-    // output is never captured/displayed). Not specific to any one widget;
-    // any CustomButtonTouchBarItem-based button can use this.
-    func revealTemporarily(_ text: String, forDuration duration: TimeInterval) {
-        let token = UUID()
-        revealToken = token
-        let previousTitle = attributedTitle
-        let previousImage = image
+    // Advances to the next cycle state and applies whatever's needed to
+    // return to index 0 (nothing to fetch there — either restore the
+    // snapshot taken on the way out, or, for RefreshSuppressible items,
+    // resume normal auto-refresh and show its latest fetched value instead
+    // of a possibly-stale snapshot). Returns the new index; the caller is
+    // responsible for fetching/showing content for indices > 0 — this
+    // method only owns the index and the index-0 restore path, since
+    // fetching (`sources[index-1]`) is async and item-agnostic.
+    @discardableResult
+    func cycleAdvance(stateCount: Int) -> Int {
+        guard stateCount > 0 else { return 0 }
+        cycleIndex = (cycleIndex + 1) % (stateCount + 1)
 
-        title = text
-        image = nil
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
-            guard let self = self, self.revealToken == token else { return }
-            self.attributedTitle = previousTitle
-            self.image = previousImage
+        if cycleIndex == 0 {
+            if let refreshable = self as? RefreshSuppressible {
+                refreshable.suppressAutoRefresh(false)
+                refreshable.restoreLatestAutoRefreshedTitle()
+            } else if let baseline = cycleBaselineTitle {
+                attributedTitle = baseline
+            }
+            cycleBaselineTitle = nil
+        } else if cycleIndex == 1 {
+            // Just left index 0 — capture what "off" looks like. Only
+            // needed as a fallback for items that don't track their own
+            // "latest" value independently.
+            if let refreshable = self as? RefreshSuppressible {
+                refreshable.suppressAutoRefresh(true)
+            } else {
+                cycleBaselineTitle = attributedTitle
+            }
         }
+        return cycleIndex
     }
 
     private func reinstallButton() {
