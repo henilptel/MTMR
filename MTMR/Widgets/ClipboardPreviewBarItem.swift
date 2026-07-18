@@ -54,7 +54,10 @@ class ClipboardPreviewBarItem: CustomButtonTouchBarItem {
         // Picks up a second copy that happens while this chip is already on
         // screen (a rebuild-worthy identifier/count change didn't occur, so
         // TouchBarController wouldn't otherwise touch this instance again).
-        ClipboardMonitor.shared.setOnChange { [weak self] in
+        // Keyed by `self`'s identity so a second clipboardPreview widget (if
+        // one were ever configured) can't silently clobber this instance's
+        // registration — see ClipboardMonitor.onChangeHandlers.
+        ClipboardMonitor.shared.setOnChange(owner: self) { [weak self] in
             guard let self = self else { return }
             let text = ClipboardMonitor.shared.previewText ?? ""
             self.title = text
@@ -67,7 +70,7 @@ class ClipboardPreviewBarItem: CustomButtonTouchBarItem {
     }
 
     deinit {
-        ClipboardMonitor.shared.setOnChange(nil)
+        ClipboardMonitor.shared.setOnChange(owner: self, nil)
     }
 
     private static func width(for text: String, cappedAt maxWidth: CGFloat) -> CGFloat {

@@ -186,7 +186,28 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
         task.standardOutput = outPipe
         task.standardError = errPipe
         guard (try? task.run()) != nil else { return nil }
+
+        // Drain both pipes concurrently with the process running, not just
+        // after waitUntilExit() — a pipe's OS buffer is finite (~64KB), and
+        // reading stdout only after the process exits (with stderr never
+        // read at all, as this used to do) means a child that fills either
+        // buffer while still running blocks on write() forever, while we're
+        // blocked in waitUntilExit() waiting for it to exit: a real
+        // Process+Pipe deadlock, not just a theoretical one.
+        let drainGroup = DispatchGroup()
+        var outData = Data()
+        drainGroup.enter()
+        DispatchQueue.global(qos: .utility).async {
+            outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+            drainGroup.leave()
+        }
+        drainGroup.enter()
+        DispatchQueue.global(qos: .utility).async {
+            _ = errPipe.fileHandleForReading.readDataToEndOfFile() // drain only, content unused
+            drainGroup.leave()
+        }
         task.waitUntilExit()
+        drainGroup.wait()
 
         // A non-zero exit (malformed/locked DB despite the copy, schema
         // mismatch in a future Brave version, etc.) means the query didn't
@@ -195,7 +216,6 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
         // came back.
         guard task.terminationStatus == 0 else { return nil }
 
-        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
         guard let hexString = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !hexString.isEmpty else {
             return nil

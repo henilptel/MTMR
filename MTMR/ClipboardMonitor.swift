@@ -30,12 +30,18 @@ final class ClipboardMonitor {
     private var maxChars: Int = 18
     private var started = false
 
-    // Fired whenever previewText changes while the chip may already be on
+    // Fired whenever previewText changes while a chip may already be on
     // screen, so the live NSTouchBarItem can update its title immediately —
     // TouchBarController's reuse-existing-instance optimization means a
-    // second copy while the chip is still showing won't otherwise trigger
-    // any rebuild that would pick up the new text.
-    private var onChange: (() -> Void)?
+    // second copy while a chip is still showing won't otherwise trigger any
+    // rebuild that would pick up the new text.
+    //
+    // Keyed by the registering item's ObjectIdentifier rather than a single
+    // slot: items.json could technically configure more than one
+    // clipboardPreview widget, and a single slot would let the second
+    // registration silently clobber the first's, leaving that chip stale on
+    // future copies with no error.
+    private var onChangeHandlers: [ObjectIdentifier: () -> Void] = [:]
 
     private init() {}
 
@@ -58,8 +64,13 @@ final class ClipboardMonitor {
         pollTimer = timer
     }
 
-    func setOnChange(_ callback: (() -> Void)?) {
-        onChange = callback
+    func setOnChange(owner: AnyObject, _ callback: (() -> Void)?) {
+        let key = ObjectIdentifier(owner)
+        if let callback = callback {
+            onChangeHandlers[key] = callback
+        } else {
+            onChangeHandlers.removeValue(forKey: key)
+        }
     }
 
     func paste() {
@@ -110,7 +121,7 @@ final class ClipboardMonitor {
 
         let wasActive = previewText != nil
         previewText = truncated
-        onChange?()
+        onChangeHandlers.values.forEach { $0() }
         // Only a structural bar rebuild (chip going from absent to present)
         // needs prepareTouchBar(); an already-visible chip was just updated
         // in place above via onChange().
