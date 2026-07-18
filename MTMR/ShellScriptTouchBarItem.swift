@@ -61,11 +61,7 @@ class ShellScriptTouchBarItem: CustomButtonTouchBarItem, RefreshSuppressible {
         }
 
         // Apply returned text attributes (if they were returned) to our result string
-        let helper = AMR_ANSIEscapeHelper.init()
-        helper.defaultStringColor = NSColor.white
-        helper.font = "1".defaultTouchbarAttributedString.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
-        let title = NSMutableAttributedString.init(attributedString: helper.attributedString(withANSIEscapedString: rawTitle) ?? NSAttributedString(string: ""))
-        title.addAttributes([.baselineOffset: 1], range: NSRange(location: 0, length: title.length))
+        let title = ShellScriptTouchBarItem.attributedString(fromANSIEscaped: rawTitle)
         let newBackgoundColor: NSColor? = title.length != 0 ? title.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor : nil
         
         // Update UI — always track the freshest result (for RefreshSuppressible),
@@ -152,6 +148,20 @@ class ShellScriptTouchBarItem: CustomButtonTouchBarItem, RefreshSuppressible {
         }
 
         return output.replacingOccurrences(of: "\\n+$", with: "", options: .regularExpression)
+    }
+
+    // Extracted from refreshAndSchedule() above so cycleScriptOutput can give
+    // its states the same ANSI color/underline/etc. styling capability this
+    // widget's own primary script output already has, instead of a plainer
+    // text-only path with no way to distinguish states visually beyond their
+    // literal characters.
+    static func attributedString(fromANSIEscaped rawTitle: String) -> NSMutableAttributedString {
+        let helper = AMR_ANSIEscapeHelper.init()
+        helper.defaultStringColor = NSColor.white
+        helper.font = "1".defaultTouchbarAttributedString.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        let title = NSMutableAttributedString.init(attributedString: helper.attributedString(withANSIEscapedString: rawTitle) ?? NSAttributedString(string: ""))
+        title.addAttributes([.baselineOffset: 1], range: NSRange(location: 0, length: title.length))
+        return title
     }
 }
 

@@ -555,13 +555,18 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             DispatchQueue.shellScriptQueue.async { [weak item] in
                 let output = ShellScriptTouchBarItem.runCapturingOutput(command, timeout: 10.0)
                 let text = output.isEmpty ? "?" : output
+                // Same ANSI color/underline support the widget's own primary
+                // output already gets — a cycle state's script can style
+                // itself (e.g. an underline to visually distinguish a
+                // different metric) the same way, no separate mechanism.
+                let attributed = ShellScriptTouchBarItem.attributedString(fromANSIEscaped: text)
                 DispatchQueue.main.async { [weak item] in
                     // The user may have tapped again (or cycled all the way
                     // back to 0) while this script was still running —
                     // applying a stale fetch now would silently show text
                     // for a different state than the one currently active.
                     guard let item = item, item.cycleIndex == newIndex else { return }
-                    item.title = text
+                    item.attributedTitle = attributed
                 }
             }
         }
