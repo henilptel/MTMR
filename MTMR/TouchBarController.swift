@@ -441,8 +441,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         switch action.value {
         case let .hidKey(keycode: keycode):
             return { HIDPostAuxKey(keycode) }
-        case let .keyPress(keycode: keycode):
-            return { GenericKeyPress(keyCode: CGKeyCode(keycode)).send() }
+        case let .keyPress(keycode: keycode, flags: flags):
+            return { GenericKeyPress(keyCode: CGKeyCode(keycode), flags: flags).send() }
         case let .appleScript(source: source):
             guard let appleScript = source.appleScript else {
                 print("cannot create apple script for item \(action)")
@@ -485,8 +485,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         switch item.legacyAction {
         case let .hidKey(keycode: keycode):
             return { HIDPostAuxKey(keycode) }
-        case let .keyPress(keycode: keycode):
-            return { GenericKeyPress(keyCode: CGKeyCode(keycode)).send() }
+        case let .keyPress(keycode: keycode, flags: flags):
+            return { GenericKeyPress(keyCode: CGKeyCode(keycode), flags: flags).send() }
         case let .appleScript(source: source):
             guard let appleScript = source.appleScript else {
                 print("cannot create apple script for item \(item)")
@@ -529,8 +529,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         switch item.legacyLongAction {
         case let .hidKey(keycode: keycode):
             return { HIDPostAuxKey(keycode) }
-        case let .keyPress(keycode: keycode):
-            return { GenericKeyPress(keyCode: CGKeyCode(keycode)).send() }
+        case let .keyPress(keycode: keycode, flags: flags):
+            return { GenericKeyPress(keyCode: CGKeyCode(keycode), flags: flags).send() }
         case let .appleScript(source: source):
             guard let appleScript = source.appleScript else {
                 print("cannot create apple script for item \(item)")

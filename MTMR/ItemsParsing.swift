@@ -57,7 +57,7 @@ class SupportedTypesHolder {
         "escape": { _ in (
             item: .staticButton(title: "esc"),
             actions: [
-                Action(trigger: .singleTap, value: .keyPress(keycode: 53))
+                Action(trigger: .singleTap, value: .keyPress(keycode: 53, flags: []))
             ],
             legacyAction: .none,
             legacyLongAction: .none,
@@ -67,7 +67,7 @@ class SupportedTypesHolder {
         "delete": { _ in (
             item: .staticButton(title: "del"),
             actions: [
-                Action(trigger: .singleTap, value: .keyPress(keycode: 117))
+                Action(trigger: .singleTap, value: .keyPress(keycode: 117, flags: []))
             ],
             legacyAction: .none,
             legacyLongAction: .none,
@@ -470,13 +470,13 @@ struct Action: Decodable {
     enum Value {
         case none
         case hidKey(keycode: Int32)
-        case keyPress(keycode: Int)
+        case keyPress(keycode: Int, flags: CGEventFlags)
         case appleScript(source: SourceProtocol)
         case shellScript(executable: String, parameters: [String])
         case custom(closure: () -> Void)
         case openUrl(url: String)
     }
-    
+
     private enum ActionTypeRaw: String, Decodable {
         case hidKey
         case keyPress
@@ -484,23 +484,24 @@ struct Action: Decodable {
         case shellScript
         case openUrl
     }
-    
+
     enum CodingKeys: String, CodingKey {
         case trigger
         case action
         case keycode
+        case modifiers
         case actionAppleScript
         case executablePath
         case shellArguments
         case url
     }
-    
+
     let trigger: Trigger
     let value: Value
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         trigger = try container.decode(Trigger.self, forKey: .trigger)
         let type = try container.decodeIfPresent(ActionTypeRaw.self, forKey: .action)
 
@@ -511,7 +512,8 @@ struct Action: Decodable {
 
         case .some(.keyPress):
             let keycode = try container.decode(Int.self, forKey: .keycode)
-            value = .keyPress(keycode: keycode)
+            let modifiers = try container.decodeIfPresent([String].self, forKey: .modifiers)
+            value = .keyPress(keycode: keycode, flags: parseModifierFlags(modifiers))
 
         case .some(.appleScript):
             let source = try container.decode(Source.self, forKey: .actionAppleScript)
@@ -539,7 +541,7 @@ struct Action: Decodable {
 enum LegacyActionType: Decodable {
     case none
     case hidKey(keycode: Int32)
-    case keyPress(keycode: Int)
+    case keyPress(keycode: Int, flags: CGEventFlags)
     case appleScript(source: SourceProtocol)
     case shellScript(executable: String, parameters: [String])
     case custom(closure: () -> Void)
@@ -548,6 +550,7 @@ enum LegacyActionType: Decodable {
     private enum CodingKeys: String, CodingKey {
         case action
         case keycode
+        case modifiers
         case actionAppleScript
         case executablePath
         case shellArguments
@@ -573,7 +576,8 @@ enum LegacyActionType: Decodable {
 
         case .some(.keyPress):
             let keycode = try container.decode(Int.self, forKey: .keycode)
-            self = .keyPress(keycode: keycode)
+            let modifiers = try container.decodeIfPresent([String].self, forKey: .modifiers)
+            self = .keyPress(keycode: keycode, flags: parseModifierFlags(modifiers))
 
         case .some(.appleScript):
             let source = try container.decode(Source.self, forKey: .actionAppleScript)
@@ -597,7 +601,7 @@ enum LegacyActionType: Decodable {
 enum LegacyLongActionType: Decodable {
     case none
     case hidKey(keycode: Int32)
-    case keyPress(keycode: Int)
+    case keyPress(keycode: Int, flags: CGEventFlags)
     case appleScript(source: SourceProtocol)
     case shellScript(executable: String, parameters: [String])
     case custom(closure: () -> Void)
@@ -606,6 +610,7 @@ enum LegacyLongActionType: Decodable {
     private enum CodingKeys: String, CodingKey {
         case longAction
         case longKeycode
+        case longModifiers
         case longActionAppleScript
         case longExecutablePath
         case longShellArguments
@@ -631,7 +636,8 @@ enum LegacyLongActionType: Decodable {
 
         case .some(.keyPress):
             let keycode = try container.decode(Int.self, forKey: .longKeycode)
-            self = .keyPress(keycode: keycode)
+            let modifiers = try container.decodeIfPresent([String].self, forKey: .longModifiers)
+            self = .keyPress(keycode: keycode, flags: parseModifierFlags(modifiers))
 
         case .some(.appleScript):
             let source = try container.decode(Source.self, forKey: .longActionAppleScript)
