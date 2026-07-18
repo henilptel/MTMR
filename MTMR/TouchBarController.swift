@@ -400,6 +400,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             barItem = MusicBarItem(identifier: identifier, interval: interval, disableMarquee: disableMarquee)
         case let .group(items: items):
             barItem = GroupBarItem(identifier: identifier, items: items)
+        case let .dynamicBookmarks(source: source):
+            barItem = BookmarksBarItem(identifier: identifier, source: source)
         case .nightShift:
             barItem = NightShiftBarItem(identifier: identifier)
         case .dnd:

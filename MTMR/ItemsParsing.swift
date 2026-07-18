@@ -271,6 +271,7 @@ enum ItemType: Decodable {
     case inputsource
     case music(interval: Double, disableMarquee: Bool)
     case group(items: [BarItemDefinition])
+    case dynamicBookmarks(source: SourceProtocol)
     case nightShift
     case dnd
     case pomodoro(workTime: Double, restTime: Double)
@@ -328,6 +329,7 @@ enum ItemType: Decodable {
         case inputsource
         case music
         case group
+        case dynamicBookmarks
         case nightShift
         case dnd
         case pomodoro
@@ -410,6 +412,10 @@ enum ItemType: Decodable {
         case .group:
             let items = try container.decode([BarItemDefinition].self, forKey: .items)
             self = .group(items: items)
+
+        case .dynamicBookmarks:
+            let source = try container.decode(Source.self, forKey: .source)
+            self = .dynamicBookmarks(source: source)
 
         case .nightShift:
             self = .nightShift
