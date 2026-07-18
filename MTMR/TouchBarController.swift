@@ -447,6 +447,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
         if case let .title(value)? = item.additionalParameters[.title] {
             if let item = barItem as? GroupBarItem {
                 item.collapsedRepresentationLabel = value
+            } else if let item = barItem as? BookmarksBarItem {
+                item.collapsedRepresentationLabel = value
             } else if let item = barItem as? CustomButtonTouchBarItem {
                 item.title = value
             }
