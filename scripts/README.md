@@ -24,8 +24,13 @@ Browse available SF Symbol names at [developer.apple.com/sf-symbols](https://dev
 
 ## button-template.json
 
-A reusable template for Touch Bar buttons that match macOS's own native style — borderless, no background fill, icon-only, blends into the black Touch Bar (like the system's brightness/volume buttons). A colored-pill/CTA-style variant (`background` + `bordered`) was tried first and rejected — too wide, too loud, didn't fit the system aesthetic. Stick with minimal/transparent going forward. Copy the object into `items.json`'s array, then:
+A reusable template for Touch Bar buttons that match macOS's own native style. Went through three iterations before landing here:
+1. **Colored pill** (`background` hex + bordered) — rejected: too wide, too loud, didn't fit the system aesthetic
+2. **Fully borderless icon** (`bordered: false`, no background) — rejected: no visible boundary at all, impossible to tell where the touchable region is
+3. **`bordered: true`, no custom background** (resolved) — macOS's own default gray-bezel look, same as the built-in "esc" button. Clearly shows the tap region, still fully native, no bold color.
+
+Copy the object into `items.json`'s array, then:
 1. Generate an icon with `icon-to-base64.sh` and paste the result into `image.base64`
 2. Set (or remove) `matchAppId` to scope it to a specific app
-3. Keep `bordered: false` and don't set `background` — that's what keeps it flat/native instead of a filled pill
+3. Keep `bordered: true` and don't set `background` — that's the resolved native look
 4. Fill in `actions` for whatever triggers you need (`singleTap`, `doubleTap`, `tripleTap`, `longTap` are all supported per-button)

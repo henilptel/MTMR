@@ -1,12 +1,12 @@
 {
-  "_comment": "Reusable Touch Bar button template, following macOS's own native style: borderless, no background fill, icon-only, blends into the black Touch Bar (like the system's brightness/volume buttons) — not a colored pill/CTA look. Copy this object into items.json, then: (1) generate an icon with ./icon-to-base64.sh, (2) paste it into image.base64, (3) set matchAppId to scope it to one app (or delete the line to always show), (4) wire up whatever actions you need.",
+  "_comment": "Reusable Touch Bar button template, following macOS's own native style: bordered:true with no custom background color gives the system's default gray-bezel look (same as the built-in 'esc' button) — clearly shows the tap region without a bold/colored CTA look. A fully borderless variant was tried first but made the touchable area impossible to see; a colored pill was tried and rejected as too loud. This bordered-gray style is the resolved default going forward. Copy this object into items.json, then: (1) generate an icon with ./icon-to-base64.sh, (2) paste it into image.base64, (3) set matchAppId to scope it to one app (or delete the line to always show), (4) wire up whatever actions you need.",
 
   "type": "staticButton",
   "title": "",
   "matchAppId": "com\\.example\\.App",
-  "width": 40,
+  "width": 46,
   "align": "left",
-  "bordered": false,
+  "bordered": true,
   "image": {
     "base64": "PASTE_OUTPUT_OF_icon-to-base64.sh_HERE"
   },
@@ -16,13 +16,6 @@
       "action": "appleScript",
       "actionAppleScript": {
         "inline": "-- your singleTap AppleScript here"
-      }
-    },
-    {
-      "trigger": "doubleTap",
-      "action": "appleScript",
-      "actionAppleScript": {
-        "inline": "-- your doubleTap AppleScript here"
       }
     }
   ]
