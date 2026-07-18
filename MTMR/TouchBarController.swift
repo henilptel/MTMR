@@ -258,12 +258,14 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
     }
 
     func createItems() {
+        let previousItems = items
+        let previousSwipeItems = swipeItems
         items = [:]
         swipeItems = []
 
         for (identifier, definition) in itemDefinitions {
             var show = true
-            
+
             if let frontApp = frontmostApplicationIdentifier {
                 if case let .matchAppId(regexString)? = definition.additionalParameters[.matchAppId] {
                     let regex = try! NSRegularExpression(pattern: regexString)
@@ -273,13 +275,22 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
                     }
                 }
             }
-            
+
             if show {
-                let item = createItem(forIdentifier: identifier, definition: definition)
-                if item is SwipeItem {
-                    swipeItems.append(item as! SwipeItem)
+                // Reuse the existing instance when this item was already visible,
+                // instead of recreating (and re-triggering shell/AppleScript buttons)
+                // on every single app-switch event.
+                if let existingItem = previousItems[identifier] {
+                    items[identifier] = existingItem
+                } else if let existingSwipeItem = previousSwipeItems.first(where: { $0.identifier == identifier }) {
+                    swipeItems.append(existingSwipeItem)
                 } else {
-                    items[identifier] = item
+                    let item = createItem(forIdentifier: identifier, definition: definition)
+                    if item is SwipeItem {
+                        swipeItems.append(item as! SwipeItem)
+                    } else {
+                        items[identifier] = item
+                    }
                 }
             }
         }
