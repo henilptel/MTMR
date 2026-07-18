@@ -21,3 +21,11 @@ Converts an image, an SF Symbol, or an emoji into a base64 PNG string for use in
 Browse available SF Symbol names at [developer.apple.com/sf-symbols](https://developer.apple.com/sf-symbols/) or the SF Symbols Mac app.
 
 **Gotcha:** if you redirect the output to a file, do NOT merge stderr into it (`> out.txt 2>&1`) — the diagnostic line ("N chars, copied to clipboard...") is intentionally printed to stderr so it doesn't pollute the base64, but merging streams defeats that and corrupts the file. Just use plain `> out.txt` (stderr will still print to your terminal).
+
+## cta-button-template.json
+
+A reusable template for "real button"-looking Touch Bar buttons — a filled/bordered colored pill with an icon, not a bare floating glyph. Copy the object into `items.json`'s array, then:
+1. Generate an icon with `icon-to-base64.sh` and paste the result into `image.base64`
+2. Set (or remove) `matchAppId` to scope it to a specific app
+3. Pick a `background` hex color — this is the key field: setting it makes MTMR render a solid filled/bordered pill (see `CustomButtonTouchBarItem.swift` — a set `backgroundColor` forces `isBordered = true` and fills the button), instead of the flat, borderless look you get by default
+4. Fill in `actions` for whatever triggers you need (`singleTap`, `doubleTap`, `tripleTap`, `longTap` are all supported per-button)

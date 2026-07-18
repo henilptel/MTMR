@@ -1,0 +1,29 @@
+{
+  "_comment": "Reusable CTA-style button template. Copy this object into items.json, then: (1) generate an icon with ./icon-to-base64.sh and paste it into image.base64, (2) set matchAppId to scope it to one app (or delete the line to always show), (3) pick a background hex color, (4) wire up whatever actions you need. background makes MTMR render a real filled/bordered pill instead of a bare floating icon (see CustomButtonTouchBarItem.swift ~line 107: setting backgroundColor forces isBordered=true and applies a solid fill) — that's what gives it the 'actual button' look instead of a flat icon.",
+
+  "type": "staticButton",
+  "title": "",
+  "matchAppId": "com\\.example\\.App",
+  "width": 58,
+  "align": "left",
+  "background": "#FB542B",
+  "image": {
+    "base64": "PASTE_OUTPUT_OF_icon-to-base64.sh_HERE"
+  },
+  "actions": [
+    {
+      "trigger": "singleTap",
+      "action": "appleScript",
+      "actionAppleScript": {
+        "inline": "-- your singleTap AppleScript here"
+      }
+    },
+    {
+      "trigger": "doubleTap",
+      "action": "appleScript",
+      "actionAppleScript": {
+        "inline": "-- your doubleTap AppleScript here"
+      }
+    }
+  ]
+}
