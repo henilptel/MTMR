@@ -103,6 +103,12 @@ class CustomButtonTouchBarItem: NSCustomTouchBarItem, NSGestureRecognizerDelegat
         let title = button.attributedTitle
         let image = button.image
         let cell = CustomButtonCell(parentItem: self)
+        // Ellipsize instead of silently clipping when a title doesn't fit
+        // the button's actual pixel width (e.g. a configured `width` in
+        // items.json narrower than the text needs) — separate from any
+        // widget-level character-count truncation, which only bounds how
+        // much text is ever put in the title in the first place.
+        cell.lineBreakMode = .byTruncatingTail
         button.cell = cell
         if let color = backgroundColor {
             cell.isBordered = true
