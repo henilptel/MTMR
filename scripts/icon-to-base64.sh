@@ -3,9 +3,16 @@
 # paste into an MTMR items.json "image": { "base64": "..." } field.
 #
 # Usage:
-#   icon-to-base64.sh --image /path/to/icon.png [--size 22]
-#   icon-to-base64.sh --sf-symbol "wrench.and.screwdriver" [--color white] [--size 22] [--point-size 16]
-#   icon-to-base64.sh --emoji "🔥" [--size 22]
+#   icon-to-base64.sh --image /path/to/icon.png [--size 44]
+#   icon-to-base64.sh --sf-symbol "wrench.and.screwdriver" [--color white] [--size 44] [--point-size 32]
+#   icon-to-base64.sh --emoji "🔥" [--size 44]
+#
+# Defaults render at 2x (44x44px / point-size 32) because the Touch Bar is a
+# Retina (2x) display — MTMR displays icons around ~22pt, and a 1x (22x22px)
+# source gets visibly upscaled/blurred by the OS to fill that at 2x density.
+# Rendering at 44x44px physical pixels for a 22pt visual size keeps it crisp.
+# If you deliberately want a smaller/non-Retina icon, pass --size/--point-size
+# explicitly (e.g. --size 22 --point-size 16 for the old 1x behavior).
 #
 # Always re-encodes to a clean 8-bit RGBA PNG (MTMR crashes on 8-bit
 # indexed/palette PNGs) and copies the base64 result to your clipboard,
@@ -13,8 +20,8 @@
 
 set -euo pipefail
 
-SIZE=22
-POINT_SIZE=16
+SIZE=44
+POINT_SIZE=32
 COLOR="white"
 MODE=""
 INPUT=""
