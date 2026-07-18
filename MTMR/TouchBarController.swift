@@ -262,6 +262,14 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             let identifierString = item.type.identifierBase.appending(time + "--" + UUID().uuidString)
             let identifier = NSTouchBarItem.Identifier(identifierString)
             itemDefinitions[identifier] = item
+
+            // Configure the clipboard poller from every definition load (not
+            // just when the chip is actually shown) — it must already be
+            // running before we can even decide whether to show the chip.
+            if case let .clipboardPreview(hideAfter: hideAfter, maxChars: maxChars) = item.type {
+                ClipboardMonitor.shared.configure(hideAfter: hideAfter, maxChars: maxChars)
+            }
+
             if item.align == .left {
                 leftIdentifiers.append(identifier)
             }
@@ -291,6 +299,13 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
                         show = false
                     }
                 }
+            }
+
+            // Only occupy Touch Bar space while there's actually something to
+            // paste — see ClipboardMonitor, which keeps polling regardless of
+            // this chip's on-screen presence so it can flip this back on.
+            if case .clipboardPreview = definition.type, ClipboardMonitor.shared.previewText == nil {
+                show = false
             }
 
             if show {
@@ -406,8 +421,11 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             barItem = GroupBarItem(identifier: identifier, items: items)
         case let .dynamicBookmarks(source: source, openInApp: openInApp):
             barItem = BookmarksBarItem(identifier: identifier, source: source, openInApp: openInApp)
-        case let .clipboardPreview(hideAfter: hideAfter, maxChars: maxChars):
-            barItem = ClipboardPreviewBarItem(identifier: identifier, hideAfter: hideAfter, maxChars: maxChars)
+        case .clipboardPreview:
+            // hideAfter/maxChars already handed to ClipboardMonitor in
+            // loadItemDefinitions() — this only ever gets created while a
+            // preview is already active (see the show gate in createItems()).
+            barItem = ClipboardPreviewBarItem(identifier: identifier)
         case .nightShift:
             barItem = NightShiftBarItem(identifier: identifier)
         case .dnd:
