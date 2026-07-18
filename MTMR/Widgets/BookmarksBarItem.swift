@@ -44,7 +44,19 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
         guard let content = source.string else { return [] }
         return content.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+            .filter { line in
+                guard !line.isEmpty, !line.hasPrefix("#") else { return false }
+                // Only accept http(s) links with a parseable host — anything
+                // else (a stray typo, a non-URL line accidentally pasted in)
+                // would otherwise silently become a button that does nothing
+                // useful when tapped ("open -a Brave <garbage>" fails quietly
+                // at the OS level) instead of just being skipped.
+                guard let url = URL(string: line), let scheme = url.scheme?.lowercased(),
+                      scheme == "http" || scheme == "https", url.host != nil else {
+                    return false
+                }
+                return true
+            }
     }
 
     @objc override func showPopover(_ sender: Any?) {
@@ -169,12 +181,21 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
         let task = Process()
         task.launchPath = "/usr/bin/sqlite3"
         task.arguments = [tmpCopy, query]
-        let pipe = Pipe()
-        task.standardOutput = pipe
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.standardOutput = outPipe
+        task.standardError = errPipe
         guard (try? task.run()) != nil else { return nil }
         task.waitUntilExit()
 
-        let outData = pipe.fileHandleForReading.readDataToEndOfFile()
+        // A non-zero exit (malformed/locked DB despite the copy, schema
+        // mismatch in a future Brave version, etc.) means the query didn't
+        // actually succeed — treat that the same as "no favicon found"
+        // rather than trying to hex-decode whatever partial/empty output
+        // came back.
+        guard task.terminationStatus == 0 else { return nil }
+
+        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
         guard let hexString = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !hexString.isEmpty else {
             return nil
@@ -184,7 +205,35 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
 
     private static func fetchFromNetwork(host: String) -> Data? {
         guard let url = URL(string: "https://\(host)/favicon.ico") else { return nil }
-        return try? Data(contentsOf: url)
+
+        // Data(contentsOf:) uses a long default timeout (up to 60s) with no
+        // way to override it — an unreachable/slow domain would otherwise
+        // stall this background prefetch pass for a full minute per
+        // bookmark. Use URLSession with an explicit short timeout instead,
+        // and turn the async API into a blocking call with a semaphore since
+        // this whole resolution pass is already running off the main thread
+        // on a background queue (see showPopover's prefetch dispatch) and is
+        // meant to complete quickly, not fan out into more concurrency.
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5.0
+
+        var result: Data?
+        let semaphore = DispatchSemaphore(value: 0)
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            defer { semaphore.signal() }
+            guard error == nil,
+                  let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  let data = data, !data.isEmpty else {
+                return
+            }
+            result = data
+        }
+        task.resume()
+        // Wait slightly longer than the request timeout so we don't cut off
+        // a response that's about to arrive right at the timeout boundary.
+        _ = semaphore.wait(timeout: .now() + request.timeoutInterval + 1.0)
+        return result
     }
 
     private static func writeCleanPNG(data: Data, to path: String) -> Bool {
@@ -199,7 +248,26 @@ class BookmarksBarItem: NSPopoverTouchBarItem, NSTouchBarDelegate {
               let png = bitmap.representation(using: .png, properties: [:]) else {
             return false
         }
-        return (try? png.write(to: URL(fileURLWithPath: path))) != nil
+
+        // Write to a temp file in the same directory then rename into place.
+        // A plain write(to:) that gets interrupted (app quit, disk full
+        // mid-write) could leave a truncated/corrupt PNG sitting at the
+        // final path — cachedIconPath() only checks *existence*, not
+        // validity, so a corrupt file would permanently block ever
+        // re-fetching that bookmark's real favicon. rename(2) is atomic, so
+        // the final path only ever contains a complete file or doesn't
+        // exist at all.
+        let tempPath = "\(path).tmp-\(UUID().uuidString)"
+        let tempURL = URL(fileURLWithPath: tempPath)
+        do {
+            try png.write(to: tempURL)
+            _ = try? FileManager.default.removeItem(atPath: path)
+            try FileManager.default.moveItem(atPath: tempPath, toPath: path)
+            return true
+        } catch {
+            try? FileManager.default.removeItem(atPath: tempPath)
+            return false
+        }
     }
 }
 

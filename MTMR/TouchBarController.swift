@@ -51,6 +51,8 @@ extension ItemType {
             return "com.toxblh.mtmr.groupBar."
         case .dynamicBookmarks(source: _, openInApp: _):
             return "com.toxblh.mtmr.dynamicBookmarks."
+        case .clipboardPreview(hideAfter: _, maxChars: _):
+            return "com.toxblh.mtmr.clipboardPreview."
         case .nightShift:
             return "com.toxblh.mtmr.nightShift."
         case .dnd:
@@ -404,6 +406,8 @@ class TouchBarController: NSObject, NSTouchBarDelegate {
             barItem = GroupBarItem(identifier: identifier, items: items)
         case let .dynamicBookmarks(source: source, openInApp: openInApp):
             barItem = BookmarksBarItem(identifier: identifier, source: source, openInApp: openInApp)
+        case let .clipboardPreview(hideAfter: hideAfter, maxChars: maxChars):
+            barItem = ClipboardPreviewBarItem(identifier: identifier, hideAfter: hideAfter, maxChars: maxChars)
         case .nightShift:
             barItem = NightShiftBarItem(identifier: identifier)
         case .dnd:
