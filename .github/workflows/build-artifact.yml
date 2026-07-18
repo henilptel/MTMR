@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - master
+    paths:
+      # Only rebuild when something that actually affects the compiled app
+      # changes. macOS runners cost 10x the minutes of Linux ones on
+      # GitHub's free tier — don't burn them on docs/scripts/config commits.
+      - "MTMR/**"
+      - "MTMR.xcodeproj/**"
+      - "Resources/**"
+      - "Sparkle.framework/**"
+      - "export-options.plist"
+      - ".github/workflows/build-artifact.yml"
   workflow_dispatch:
 
 jobs:

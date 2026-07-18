@@ -1,6 +1,13 @@
 name: Build-and-test
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "MTMR/**"
+      - "MTMRTests/**"
+      - "MTMR.xcodeproj/**"
+      - ".github/workflows/build-test.yml"
+  pull_request:
 
 jobs:
   test:

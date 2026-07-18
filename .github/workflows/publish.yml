@@ -1,11 +1,12 @@
 name: Publish unsign version
 
 on:
-  push:
-    branches:
-      - master
-    tags:
-      - "v*"
+  # Disabled from auto-running: this workflow's Release step is broken
+  # (marvinpinto/action-automatic-releases is unmaintained) and always
+  # fails after burning a full macOS build first — pure wasted CI minutes
+  # on every push. We don't use tagged releases either. Left as
+  # workflow_dispatch only in case it's ever worth fixing/using.
+  workflow_dispatch:
 
 jobs:
   Build-and-release:
